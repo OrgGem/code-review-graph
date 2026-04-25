@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "uvx",
+      "args": ["code-review-graph", "serve"]
+    },
+    "faiss-code-index": {
+      "command": "python3",
+      "args": [
+        "skill-build/build-code-graph/faiss_mcp_server.py",
+        "--index-dir",
+        ".code-review-graph/faiss-index"
+      ]
+    }
+  }
+}
