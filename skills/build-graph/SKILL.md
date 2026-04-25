@@ -8,6 +8,8 @@ argument-hint: "[full]"
 
 Build or incrementally update the persistent code knowledge graph for this repository.
 
+> Prefer `/code-review-graph:build-code-graph` as the shared skill name across Claude, Kiro, and Antigravity.
+
 ## Steps
 
 1. **Check graph status** by calling the `list_graph_stats_tool` MCP tool.

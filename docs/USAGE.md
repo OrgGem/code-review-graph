@@ -17,7 +17,9 @@ To target a specific platform instead of auto-detecting all:
 ```bash
 code-review-graph install --platform codex
 code-review-graph install --platform cursor
-code-review-graph install --platform claude-code
+code-review-graph install --platform claude
+code-review-graph install --platform antigravity
+code-review-graph install --platform kiro
 ```
 
 ### Supported Platforms
@@ -32,6 +34,7 @@ code-review-graph install --platform claude-code
 | **Continue** | `.continue/config.json` |
 | **OpenCode** | `.opencode.json` |
 | **Antigravity** | `~/.gemini/antigravity/mcp_config.json` |
+| **Kiro** | `.kiro/settings/mcp.json` |
 | **Qwen Code** | `~/.qwen/settings.json` |
 | **Qoder** | `.qoder/mcp.json` |
 
@@ -39,7 +42,7 @@ code-review-graph install --platform claude-code
 
 ### 1. Build the graph (first time only)
 ```
-/code-review-graph:build-graph
+/code-review-graph:build-code-graph
 ```
 Parses your entire codebase. Takes ~10s for 500 files.
 
