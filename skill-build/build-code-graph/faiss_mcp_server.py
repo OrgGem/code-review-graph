@@ -5,17 +5,32 @@ import json
 import re
 from pathlib import Path
 
-import faiss
-import numpy as np
-from mcp.server.fastmcp import FastMCP
+try:
+    import faiss
+except ImportError:  # pragma: no cover - dependency check at runtime
+    faiss = None
 
-mcp = FastMCP("faiss-code-index")
+try:
+    import numpy as np
+except ImportError:  # pragma: no cover - dependency check at runtime
+    np = None
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except ImportError:  # pragma: no cover - dependency check at runtime
+    FastMCP = None  # type: ignore[assignment]
+
+mcp = FastMCP("faiss-code-index") if FastMCP is not None else None
 _INDEX: faiss.Index | None = None
 _METADATA: dict | None = None
 _DIM: int = 384
+_SERVER_INDEX_DIR = ".code-review-graph/faiss-index"
 
 
 def _hash_embed(text: str, dim: int) -> np.ndarray:
+    if np is None:
+        raise RuntimeError("numpy is required. Install with: python3 -m pip install numpy")
+
     vec = np.zeros(dim, dtype=np.float32)
     tokens = re.findall(r"[A-Za-z0-9_]+|[^\sA-Za-z0-9_]", text.lower())
     for token in tokens:
@@ -41,12 +56,14 @@ def _ensure_loaded(index_dir: Path) -> None:
             f"Missing index files in {index_dir}. Run build_faiss_index.py first."
         )
 
+    if faiss is None:
+        raise RuntimeError("faiss-cpu is required. Install with: python3 -m pip install faiss-cpu")
+
     _INDEX = faiss.read_index(str(index_path))
     _METADATA = json.loads(metadata_path.read_text(encoding="utf-8"))
     _DIM = int(_METADATA.get("dimension", 384))
 
 
-@mcp.tool()
 def search_code_chunks(query: str, top_k: int = 8) -> dict:
     """Semantic-like code chunk search using local FAISS index."""
     index_dir_env = Path(_SERVER_INDEX_DIR)
@@ -55,7 +72,7 @@ def search_code_chunks(query: str, top_k: int = 8) -> dict:
     assert _INDEX is not None
     assert _METADATA is not None
 
-    q = _hash_embed(query, _DIM).reshape(1, -1).astype(np.float32)
+    q = _hash_embed(query, _DIM).reshape(1, -1)
     scores, ids = _INDEX.search(q, top_k)
 
     chunks = _METADATA.get("chunks", [])
@@ -83,7 +100,8 @@ def search_code_chunks(query: str, top_k: int = 8) -> dict:
     }
 
 
-_SERVER_INDEX_DIR = ".code-review-graph/faiss-index"
+if mcp is not None:
+    mcp.tool()(search_code_chunks)
 
 
 def main() -> None:
@@ -97,6 +115,9 @@ def main() -> None:
 
     global _SERVER_INDEX_DIR
     _SERVER_INDEX_DIR = str(Path(args.index_dir).resolve())
+
+    if mcp is None:
+        raise RuntimeError("mcp package is required. Install with: python3 -m pip install mcp")
 
     mcp.run(transport="stdio")
 

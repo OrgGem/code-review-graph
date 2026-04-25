@@ -2,13 +2,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
-import faiss
-import numpy as np
+try:
+    import faiss
+except ImportError:  # pragma: no cover - dependency check at runtime
+    faiss = None
+
+try:
+    import numpy as np
+except ImportError:  # pragma: no cover - dependency check at runtime
+    np = None
 
 DEFAULT_EXTENSIONS = {
     ".py",
@@ -48,6 +56,8 @@ IGNORE_DIRS = {
     "__pycache__",
 }
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class Chunk:
@@ -69,7 +79,9 @@ def iter_files(project_root: Path) -> list[Path]:
     return files
 
 
-def split_chunks(path: Path, content: str, max_chars: int = 1500, overlap: int = 200) -> list[Chunk]:
+def split_chunks(
+    path: Path, content: str, max_chars: int = 1500, overlap: int = 200
+) -> list[Chunk]:
     lines = content.splitlines()
     chunks: list[Chunk] = []
     i = 0
@@ -109,6 +121,9 @@ def split_chunks(path: Path, content: str, max_chars: int = 1500, overlap: int =
 
 
 def hash_embed(text: str, dim: int = 384) -> np.ndarray:
+    if np is None:
+        raise RuntimeError("numpy is required. Install with: python3 -m pip install numpy")
+
     vec = np.zeros(dim, dtype=np.float32)
     tokens = re.findall(r"[A-Za-z0-9_]+|[^\sA-Za-z0-9_]", text.lower())
     for token in tokens:
@@ -122,6 +137,11 @@ def hash_embed(text: str, dim: int = 384) -> np.ndarray:
 
 
 def build_index(project_root: Path, output_dir: Path, dim: int = 384) -> tuple[int, int]:
+    if faiss is None or np is None:
+        raise RuntimeError(
+            "Missing dependencies. Install with: python3 -m pip install faiss-cpu numpy"
+        )
+
     files = iter_files(project_root)
     all_chunks: list[Chunk] = []
 
@@ -129,6 +149,7 @@ def build_index(project_root: Path, output_dir: Path, dim: int = 384) -> tuple[i
         try:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
+            logger.warning("UTF-8 decode failed for %s; retrying with errors='ignore'", path)
             text = path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
@@ -138,10 +159,14 @@ def build_index(project_root: Path, output_dir: Path, dim: int = 384) -> tuple[i
     if not all_chunks:
         raise RuntimeError("No chunks found. Check project root and supported file extensions.")
 
-    vectors = np.stack([hash_embed(chunk.text, dim=dim) for chunk in all_chunks]).astype(np.float32)
-
     index = faiss.IndexFlatIP(dim)
-    index.add(vectors)
+    batch_size = 1024
+    for start in range(0, len(all_chunks), batch_size):
+        batch = all_chunks[start : start + batch_size]
+        vectors = np.empty((len(batch), dim), dtype=np.float32)
+        for i, chunk in enumerate(batch):
+            vectors[i] = hash_embed(chunk.text, dim=dim)
+        index.add(vectors)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     faiss.write_index(index, str(output_dir / "code.index"))
@@ -189,7 +214,11 @@ def main() -> None:
     if not output_dir.is_absolute():
         output_dir = (project_root / output_dir).resolve()
 
-    file_count, chunk_count = build_index(project_root=project_root, output_dir=output_dir, dim=args.dim)
+    file_count, chunk_count = build_index(
+        project_root=project_root,
+        output_dir=output_dir,
+        dim=args.dim,
+    )
     print(f"FAISS index built: files={file_count}, chunks={chunk_count}, output={output_dir}")
 
 
