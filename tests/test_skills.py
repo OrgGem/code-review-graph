@@ -532,6 +532,25 @@ class TestInstallPlatformConfigs:
         assert entry["type"] == "stdio"
         assert entry["env"] == []
 
+    def test_install_antigravity_config(self, tmp_path):
+        antigravity_config = tmp_path / ".gemini" / "antigravity" / "mcp_config.json"
+        with patch.dict(
+            PLATFORMS,
+            {
+                "antigravity": {
+                    **PLATFORMS["antigravity"],
+                    "config_path": lambda root: antigravity_config,
+                    "detect": lambda: True,
+                },
+            },
+        ):
+            configured = install_platform_configs(tmp_path, target="antigravity")
+        assert "Antigravity" in configured
+        data = json.loads(antigravity_config.read_text())
+        entry = data["mcpServers"]["code-review-graph"]
+        assert "type" not in entry
+        assert entry["args"][-1] == "serve"
+
     def test_install_qwen_config(self, tmp_path):
         """Qwen Code uses ~/.qwen/settings.json with mcpServers (see #83)."""
         qwen_config = tmp_path / ".qwen" / "settings.json"

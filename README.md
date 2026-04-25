@@ -53,7 +53,8 @@ To target a specific platform:
 ```bash
 code-review-graph install --platform codex       # configure only Codex
 code-review-graph install --platform cursor      # configure only Cursor
-code-review-graph install --platform claude-code  # configure only Claude Code
+code-review-graph install --platform claude       # configure only Claude Code
+code-review-graph install --platform antigravity  # configure only Antigravity
 code-review-graph install --platform kiro         # configure only Kiro
 ```
 
@@ -231,7 +232,7 @@ The blast-radius analysis never misses an actually impacted file (perfect recall
 
 | Command | Description |
 |---------|-------------|
-| `/code-review-graph:build-graph` | Build or rebuild the code graph |
+| `/code-review-graph:build-code-graph` | Build or rebuild the code graph |
 | `/code-review-graph:review-delta` | Review changes since last commit |
 | `/code-review-graph:review-pr` | Full PR review with blast-radius analysis |
 
